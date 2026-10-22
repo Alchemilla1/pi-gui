@@ -1,5 +1,5 @@
 import { JsonCatalogStore } from "@pi-gui/catalogs/node";
-import { sessionKey } from "@pi-gui/session-driver";
+import { sessionKey, parseSshWorkspace } from "@pi-gui/session-driver";
 import type { ExtensionFlagValues, SessionSchemaInfo } from "@pi-gui/session-driver";
 import type { BrowserWindow } from "electron";
 import { randomUUID } from "node:crypto";
@@ -11,6 +11,7 @@ import {
   type GenerateThreadTitleOptions,
   isExtensionUiDialogRequest,
   PiSdkDriver,
+  createSshAwareDriver,
   type PiSdkDriverConfig,
   SessionLeasedError,
 } from "@pi-gui/pi-sdk-driver";
@@ -175,6 +176,7 @@ type ExtensionUiDialogRequest = Extract<
   readonly timeoutMs?: number;
 };
 export interface DesktopAppStoreOptions {
+  readonly remoteToolBridge?: import("@pi-gui/pi-sdk-driver").RemoteToolBridge;
   readonly userDataDir: string;
   readonly initialWorkspacePaths: readonly string[];
   readonly getWindow?: () => BrowserWindow | null;
@@ -299,7 +301,11 @@ export class DesktopAppStore {
         : {}),
     };
 
-    this.driver = new PiSdkDriver(driverOptions);
+    this.driver = createSshAwareDriver({
+      ...driverOptions,
+      catalogStorage: this.catalogStore,
+      remoteToolBridge: options.remoteToolBridge,
+    });
     this.worktreeRoot = join(options.userDataDir, "worktrees");
     this.isAppWorktreePath = appWorktreeRootMatcher(this.worktreeRoot);
     this.worktreeManager = new GitWorktreeManager({
@@ -2284,9 +2290,9 @@ export class DesktopAppStore {
     displayName: string | undefined,
   ): Promise<StartupDiagnostic | undefined> {
     try {
-      const workspaceStat = await stat(workspacePath);
-      if (!workspaceStat.isDirectory()) {
-        throw new Error("Path is not a directory.");
+      if (!parseSshWorkspace(workspacePath)) {
+        const workspaceStat = await stat(workspacePath);
+        if (!workspaceStat.isDirectory()) throw new Error("Path is not a directory.");
       }
       await this.driver.syncWorkspace(workspacePath, displayName);
       return undefined;

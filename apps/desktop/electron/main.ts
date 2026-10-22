@@ -206,7 +206,8 @@ function createStoreBackedOrchestrationRuntimeBridge(): OrchestrationRuntimeBrid
 
 function sessionRefFromExtensionContext(ctx: ExtensionContext): SessionRef {
   const sessionId = ctx.sessionManager.getSessionId();
-  const cwd = path.resolve(ctx.sessionManager.getCwd?.() ?? ctx.cwd);
+  const rawCwd = ctx.sessionManager.getCwd?.() ?? ctx.cwd;
+  const cwd = rawCwd.startsWith("ssh://") ? rawCwd : path.resolve(rawCwd);
   const sessionRef = store.findSessionRefByCwdAndSessionId(cwd, sessionId);
   if (!sessionRef) {
     throw new Error(`Unable to resolve orchestration session for ${cwd}:${sessionId}`);
@@ -235,6 +236,11 @@ async function runOrchestrationRuntimeToolForTest(
 }
 
 function createTestExtensionContext(sessionRef: SessionRef): ExtensionToolContext {
+  return createDesktopToolContext(sessionRef);
+}
+
+/** The built-in tools only use session identity; no remote runtime objects cross IPC. */
+function createDesktopToolContext(sessionRef: SessionRef): ExtensionToolContext {
   const workspace = store
     .snapshot()
     .workspaces.find(
@@ -243,7 +249,7 @@ function createTestExtensionContext(sessionRef: SessionRef): ExtensionToolContex
         entry.sessions.some((session) => session.id === sessionRef.sessionId),
     );
   if (!workspace) {
-    throw new Error(`Unknown test session: ${sessionRef.workspaceId}:${sessionRef.sessionId}`);
+    throw new Error(`Unknown desktop session: ${sessionRef.workspaceId}:${sessionRef.sessionId}`);
   }
 
   return {
@@ -268,7 +274,8 @@ function createTestExtensionContext(sessionRef: SessionRef): ExtensionToolContex
     compact: () => undefined,
     getSystemPrompt: () => "",
     tools: [],
-    executeTool: () => Promise.reject(new Error("Nested tool calls are not available in tests")),
+    executeTool: () =>
+      Promise.reject(new Error("Nested tool calls are not available through this context")),
   };
 }
 const OPEN_FOLDER_MENU_ITEM_ID = "file.open-folder";
@@ -1034,6 +1041,35 @@ app
       ],
     };
     store = new DesktopAppStore({
+      remoteToolBridge: {
+        definitions: [
+          ...createOrchestrationRuntimeTools(orchestrationRuntimeBridge),
+          ...createScheduledTaskRuntimeTools(scheduledTaskRuntimeBridge, () => undefined),
+        ].map(({ name, label, description, parameters }) => ({
+          name,
+          label,
+          description,
+          parameters: parameters as unknown,
+        })),
+        execute: async ({ sessionRef, toolName, toolCallId, params }) => {
+          const tools = [
+            ...createOrchestrationRuntimeTools(orchestrationRuntimeBridge),
+            ...createScheduledTaskRuntimeTools(
+              scheduledTaskRuntimeBridge,
+              () => sessionRef.workspaceId,
+            ),
+          ];
+          const tool = tools.find((entry) => entry.name === toolName);
+          if (!tool) throw new Error(`Unsupported remote desktop tool: ${toolName}`);
+          return tool.execute(
+            toolCallId,
+            params,
+            undefined,
+            undefined,
+            createDesktopToolContext(sessionRef),
+          );
+        },
+      },
       userDataDir: configuredUserDataDir,
       initialWorkspacePaths: resolveInitialWorkspacePaths(),
       getWindow: () => mainWindow,

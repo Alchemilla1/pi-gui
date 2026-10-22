@@ -322,18 +322,20 @@ export async function syncAndListWorktrees(
   }[],
 ): Promise<readonly WorktreeCatalogEntry[]> {
   const inspected = await Promise.all(
-    workspaces.map(async (workspace) => {
-      const inspection = await store.worktreeManager
-        .inspectWorkspace(workspace)
-        .catch(() => undefined);
-      return {
-        workspace,
-        isAppWorktree: await store.isAppWorktreePath(workspace.path),
-        isMainCheckout: Boolean(
-          inspection && inspection.commonDir === join(inspection.canonicalPath, ".git"),
-        ),
-      };
-    }),
+    workspaces
+      .filter((workspace) => !parseSshWorkspace(workspace.path))
+      .map(async (workspace) => {
+        const inspection = await store.worktreeManager
+          .inspectWorkspace(workspace)
+          .catch(() => undefined);
+        return {
+          workspace,
+          isAppWorktree: await store.isAppWorktreePath(workspace.path),
+          isMainCheckout: Boolean(
+            inspection && inspection.commonDir === join(inspection.canonicalPath, ".git"),
+          ),
+        };
+      }),
   );
 
   // App worktrees opened as folders never own rows; their owner lists them.
@@ -559,3 +561,4 @@ function shortDisplayTitle(value: string | undefined, limit = 44): string | unde
   }
   return trimmed.length > limit ? `${trimmed.slice(0, limit - 3).trimEnd()}...` : trimmed;
 }
+import { parseSshWorkspace } from "@pi-gui/session-driver";

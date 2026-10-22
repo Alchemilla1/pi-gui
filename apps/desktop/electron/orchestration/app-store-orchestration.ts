@@ -1499,12 +1499,6 @@ function listThreadsForContext(
   );
 
   for (const workspace of state.workspaces) {
-    if (
-      workspace.id !== parentRef.workspaceId &&
-      !parentChildren.some((child) => child.childWorkspaceId === workspace.id)
-    ) {
-      continue;
-    }
     for (const session of workspace.sessions) {
       if (session.archivedAt) {
         continue;
@@ -1512,7 +1506,7 @@ function listThreadsForContext(
       const key = sessionKey({ workspaceId: workspace.id, sessionId: session.id });
       const child = childSessionKeys.get(key);
       entries.set(key, {
-        threadId: child?.id ?? session.id,
+        threadId: child?.id ?? `${workspace.id}:${session.id}`,
         workspaceId: workspace.id,
         sessionId: session.id,
         title: child?.title ?? session.title,
@@ -1596,13 +1590,15 @@ function resolveThreadTarget(
     return undefined;
   }
 
-  const visibleThread = listThreadsForContext(store, parentRef).find(
+  const candidates = listThreadsForContext(store, parentRef).filter(
     (thread) =>
       thread.threadId === normalized ||
       thread.sessionId === normalized ||
       thread.childThreadId === normalized ||
       `${thread.workspaceId}:${thread.sessionId}` === normalized,
   );
+  // A bare UUID can collide when histories were copied between hosts.
+  const visibleThread = candidates.length === 1 ? candidates[0] : undefined;
   if (!visibleThread) {
     return undefined;
   }

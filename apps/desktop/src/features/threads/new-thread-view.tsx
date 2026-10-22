@@ -8,6 +8,7 @@ import {
 } from "react";
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type { ExtensionFlagValues } from "@pi-gui/session-driver";
+import { parseSshWorkspace } from "@pi-gui/session-driver";
 import type {
   ComposerAttachment,
   NewThreadEnvironment,
@@ -287,6 +288,7 @@ function NewThreadComposerFooter({
   onAddAttachments,
   onSubmit,
 }: NewThreadComposerFooterProps) {
+  const remote = runtime ? parseSshWorkspace(runtime.workspace.workspaceId) : undefined;
   return (
     <>
       <div className="composer__footer">
@@ -298,10 +300,12 @@ function NewThreadComposerFooter({
                 type="button"
                 onClick={() => onSelectEnvironment("local")}
               >
-                <span>Local</span>
+                <span>{remote ? remote.host : "Local"}</span>
               </button>
               <button
                 className={`new-thread__environment ${environment === "worktree" ? "new-thread__environment--active" : ""}`}
+                disabled={Boolean(remote)}
+                title={remote ? "Remote worktree creation is not available yet" : undefined}
                 type="button"
                 onClick={() => onSelectEnvironment("worktree")}
               >

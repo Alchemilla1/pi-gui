@@ -1,6 +1,8 @@
 import { ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import path from "node:path";
 import type { SessionRef } from "@pi-gui/session-driver";
+import { parseSshWorkspace } from "@pi-gui/session-driver";
+import { installRemoteHost } from "../remote/install-host";
 import type {
   ComposerAttachment,
   DesktopAppState,
@@ -318,7 +320,11 @@ export function registerDesktopIpc({
   );
 
   ipcMain.handle(desktopIpc.addWorkspacePath, (event, rawPath: unknown) =>
-    run(event, () => owners.workspace.addWorkspace(expectNonEmptyString(rawPath, "workspacePath"))),
+    run(event, async () => {
+      const workspacePath = expectNonEmptyString(rawPath, "workspacePath");
+      if (parseSshWorkspace(workspacePath)) await installRemoteHost(workspacePath);
+      return owners.workspace.addWorkspace(workspacePath);
+    }),
   );
   ipcMain.handle(desktopIpc.pickWorkspace, (event) =>
     capabilities.pickWorkspace(senderWindow(windows, event)),

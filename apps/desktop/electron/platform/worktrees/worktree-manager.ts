@@ -143,6 +143,8 @@ export class GitWorktreeManager {
   }
 
   async inspectWorkspace(workspace: WorkspaceRef): Promise<GitWorkspaceInspection> {
+    if (parseSshWorkspace(workspace.path))
+      throw new Error("Remote Git inspection is not available locally.");
     return inspectGitWorkspace(workspace.path);
   }
 
@@ -150,6 +152,8 @@ export class GitWorktreeManager {
     workspace: WorkspaceRef,
     input: CreateWorktreeOptions,
   ): Promise<WorktreeCatalogEntry> {
+    if (parseSshWorkspace(workspace.path))
+      throw new Error("Create a remote worktree using the remote terminal, then connect its path.");
     const repoRoot = await resolveRepositoryRoot(workspace.path);
     const normalizedPath = input.path.trim();
     if (!normalizedPath) {
@@ -597,3 +601,4 @@ async function canonicalPath(pathValue: string): Promise<string> {
     return resolved;
   }
 }
+import { parseSshWorkspace } from "@pi-gui/session-driver";

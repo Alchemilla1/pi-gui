@@ -2,6 +2,8 @@ import type { WebContents } from "electron";
 import { createRequire } from "node:module";
 import { accessSync, chmodSync, constants, existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { homedir } from "node:os";
+import { parseSshWorkspace } from "@pi-gui/session-driver";
 import type {
   TerminalPanelSnapshot,
   TerminalSessionSnapshot,
@@ -251,8 +253,10 @@ export class TerminalService {
     if (!workspacePath) {
       throw new Error(`Unknown workspace: ${workspaceId}`);
     }
-    ensureDirectory(workspacePath);
-    const workspaceRootKey = normalizeRootKey(workspacePath);
+    if (!parseSshWorkspace(workspacePath)) ensureDirectory(workspacePath);
+    const workspaceRootKey = parseSshWorkspace(workspacePath)
+      ? workspacePath
+      : normalizeRootKey(workspacePath);
     const rootKey = `${webContents.id}\0${workspaceRootKey}\0${normalizedScopeId}`;
     const existingRoot = this.rootsByKey.get(rootKey);
     if (existingRoot) {
@@ -304,13 +308,26 @@ export class TerminalService {
   private spawnPty(webContents: WebContents, session: TerminalSession): void {
     try {
       ensureNodePtySpawnHelperExecutable(this.options.isPackaged);
-      session.pty = loadNodePty().spawn(session.shell, [], {
-        name: "xterm-256color",
-        cols: session.size.cols,
-        rows: session.size.rows,
-        cwd: session.cwd,
-        env: buildTerminalEnv(),
-      });
+      const remote = parseSshWorkspace(session.cwd);
+      const remoteCommand = remote
+        ? `cd '${remote.path.replaceAll("'", "'\\''")}' && exec "\${SHELL:-/bin/sh}"`
+        : undefined;
+      const executable = remote
+        ? process.platform === "win32"
+          ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "OpenSSH", "ssh.exe")
+          : "ssh"
+        : session.shell;
+      session.pty = loadNodePty().spawn(
+        executable,
+        remote ? ["-tt", "-o", "BatchMode=yes", remote.host, remoteCommand!] : [],
+        {
+          name: "xterm-256color",
+          cols: session.size.cols,
+          rows: session.size.rows,
+          cwd: remote ? homedir() : session.cwd,
+          env: buildTerminalEnv(),
+        },
+      );
     } catch (error) {
       session.status = "error";
       const message = error instanceof Error ? error.message : String(error);
