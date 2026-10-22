@@ -33,3 +33,5 @@ export type {
   McpServerSummary,
   NewMcpServer,
 } from "./mcp-config.js";
+export { createSshAwareDriver } from "./remote/driver.js";
+export type { RemoteToolBridge, RemoteToolCall } from "./remote/protocol.js";

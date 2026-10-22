@@ -94,6 +94,7 @@ export {
 export type { ExtensionAction, ExtensionActionType } from "./extension-actions.js";
 export { parseExtensionAction, parseExtensionUrl } from "./extension-actions.js";
 export { sessionKey } from "./identity.js";
+export { parseSshWorkspace, sshWorkspaceUri, type SshWorkspace } from "./remote.js";
 export type {
   TurnCaptureOpening,
   TurnCaptureClosing,
