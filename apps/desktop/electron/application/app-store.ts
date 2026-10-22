@@ -1,11 +1,12 @@
 import { JsonCatalogStore } from "@pi-gui/catalogs/node";
+import { discoverLocalSessionWorkspaces } from "../workspace/local-session-discovery";
 import { sessionKey, parseSshWorkspace } from "@pi-gui/session-driver";
 import type { ExtensionFlagValues, SessionSchemaInfo } from "@pi-gui/session-driver";
 import type { BrowserWindow } from "electron";
 import { randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import {
   applyHostUiRequestToExtensionUiState,
   type GenerateThreadTitleOptions,
@@ -2145,6 +2146,19 @@ export class DesktopAppStore {
         .filter(Boolean);
       const knownWorkspaces = await this.driver.listWorkspaces();
       const workspacesToSync = new Map<string, string | undefined>();
+      const discovered = await discoverLocalSessionWorkspaces(
+        join(dirname(this.scheduledTasksFilePath), "discovered-pi-workspaces.json"),
+        knownWorkspaces.workspaces.map((workspace) => workspace.path),
+        this.catalogStore,
+        await this.driver.listLocalSessionHistory(),
+      ).catch((error: unknown) => {
+        startupDiagnostics.push({
+          scope: "application",
+          message: `Local Pi history discovery failed: ${error instanceof Error ? error.message : String(error)}`,
+        });
+        return [];
+      });
+      for (const workspacePath of discovered) workspacesToSync.set(workspacePath, undefined);
 
       for (const workspacePath of initialWorkspacePaths) {
         workspacesToSync.set(workspacePath, undefined);

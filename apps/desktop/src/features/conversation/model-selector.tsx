@@ -56,6 +56,11 @@ export function ModelSelector({
 
   const groupedModels = useMemo(() => groupByProvider(filteredModels), [filteredModels]);
   const hasAvailableModelOptions = modelOptions.length > 0;
+  const selectedModel = runtime?.models.find(
+    (model) => model.providerId === provider && model.modelId === modelId,
+  );
+  // An unset preference means Pi chooses its default, not that reasoning is unavailable.
+  const showThinkingControl = Boolean(thinkingLevel) || selectedModel?.reasoning === true;
   const hasModelControl = Boolean(provider && modelId) || hasAvailableModelOptions;
   const shouldRenderModelControl = hasModelControl || showEmptyModelControl;
   const modelBadgeLabel =
@@ -163,15 +168,16 @@ export function ModelSelector({
           ) : null}
         </span>
       ) : null}
-      {thinkingLevel ? (
+      {showThinkingControl ? (
         <span className="model-selector__anchor">
           <button
             className="model-selector__badge"
             type="button"
+            aria-label="Thinking level"
             disabled={disabled}
             onClick={() => setOpen(open === "thinking" ? "none" : "thinking")}
           >
-            {thinkingLevel}
+            {thinkingLevel ?? "Thinking"}
           </button>
           {open === "thinking" ? (
             <div
