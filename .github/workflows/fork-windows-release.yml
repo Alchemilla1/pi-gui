@@ -53,7 +53,7 @@ jobs:
           node apps/desktop/scripts/create-fork-update-manifest.mjs $archive $env:RELEASE_VERSION
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Upload reviewable candidate
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: fork-windows-candidate
           path: |
@@ -70,3 +70,4 @@ jobs:
           if ($LASTEXITCODE -eq 0) { throw 'A release with this version already exists; never replace published assets' }
           gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --title "Pi GUI Fork $env:RELEASE_VERSION" --notes 'Muelsyse + Codex fork. Unsigned Windows candidate. Publish only after installed-app, upgrade and rollback verification.' "apps/desktop/release/pi-gui-$env:RELEASE_VERSION-win-x64.zip" 'apps/desktop/release/pi-gui-update.json'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
