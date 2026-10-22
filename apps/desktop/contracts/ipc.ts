@@ -123,6 +123,8 @@ export const desktopIpc = {
   workspacePicked: "pi-gui:workspace-picked",
   clipboardImagePasted: "pi-gui:clipboard-image-pasted",
   addWorkspacePath: "pi-gui:add-workspace-path",
+  listSshHosts: "pi-gui:list-ssh-hosts",
+  browseSshDirectory: "pi-gui:browse-ssh-directory",
   pickWorkspace: "pi-gui:pick-workspace",
   selectWorkspace: "pi-gui:select-workspace",
   renameWorkspace: "pi-gui:rename-workspace",
@@ -705,6 +707,8 @@ export interface PiDesktopApi {
   onClipboardImagePasted(listener: (result: ClipboardImageRead) => void): () => void;
   getPathForFile(file: File): string;
   addWorkspacePath(path: string): Promise<DesktopAppState>;
+  listSshHosts(): Promise<string[]>;
+  browseSshDirectory(host: string, path: string): Promise<import("./ssh").SshDirectoryListing>;
   pickWorkspace(): Promise<DesktopAppState>;
   selectWorkspace(workspaceId: string): Promise<DesktopAppState>;
   renameWorkspace(workspaceId: string, displayName: string): Promise<DesktopAppState>;

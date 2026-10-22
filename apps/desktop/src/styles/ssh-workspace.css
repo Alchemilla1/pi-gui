@@ -7,6 +7,8 @@
   place-items: center;
 }
 .ssh-workspace-dialog {
+  max-height: 90vh;
+  overflow-y: auto;
   width: min(480px, 90vw);
   padding: 26px;
   border: 1px solid #8885;
@@ -30,13 +32,47 @@
   margin: 18px 0;
   font-size: 13px;
 }
-.ssh-workspace-dialog input {
+.ssh-workspace-dialog input,
+.ssh-workspace-dialog select {
   padding: 10px 12px;
   border: 1px solid #8886;
   border-radius: 8px;
   color: inherit;
   background: transparent;
   font: inherit;
+}
+.ssh-workspace-dialog select option {
+  background: Canvas;
+  color: CanvasText;
+}
+.ssh-workspace-browser-actions {
+  display: flex;
+  gap: 8px;
+}
+.ssh-workspace-folders {
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 12px;
+  border: 1px solid #8884;
+  border-radius: 8px;
+  padding: 8px;
+}
+.ssh-workspace-folders button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 7px;
+  cursor: pointer;
+}
+.ssh-workspace-folders button:hover {
+  background: #8882;
+}
+.ssh-workspace-current-path {
+  overflow-wrap: anywhere;
+  margin: 4px 7px 8px;
 }
 .ssh-workspace-dialog [role="alert"] {
   color: #d44;

@@ -684,6 +684,7 @@ export function Sidebar(props: SidebarProps) {
       </div>
       {sshDialogOpen ? (
         <SshWorkspaceDialog
+          api={api}
           onClose={() => setSshDialogOpen(false)}
           onConnect={async (uri) => {
             const state = await updateSnapshot(setSnapshot, () => api.addWorkspacePath(uri));

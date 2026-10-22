@@ -208,6 +208,11 @@ contextBridge.exposeInMainWorld("piApp", {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   addWorkspacePath: (workspacePath: string) =>
     ipcRenderer.invoke(desktopIpc.addWorkspacePath, workspacePath) as Promise<DesktopAppState>,
+  listSshHosts: () => ipcRenderer.invoke(desktopIpc.listSshHosts) as Promise<string[]>,
+  browseSshDirectory: (host: string, path: string) =>
+    ipcRenderer.invoke(desktopIpc.browseSshDirectory, [host, path]) as Promise<
+      import("../contracts/ssh").SshDirectoryListing
+    >,
   pickWorkspace: () => ipcRenderer.invoke(desktopIpc.pickWorkspace) as Promise<DesktopAppState>,
   selectWorkspace: (workspaceId: string) =>
     ipcRenderer.invoke(desktopIpc.selectWorkspace, workspaceId) as Promise<DesktopAppState>,

@@ -28,8 +28,14 @@ test("SSH workspace joins the native sidebar and runs a real remote Pi turn", as
     const page = await harness.firstWindow();
     await harness.focusWindow();
     await page.getByRole("button", { name: "Connect SSH workspace", exact: true }).click();
-    await page.getByLabel("SSH host", { exact: true }).fill(host!);
+    await page.getByLabel("SSH host", { exact: true }).selectOption(host!);
+    await expect(page.getByRole("status")).toBeHidden({ timeout: 25_000 });
+    await expect(page.getByLabel("Remote project folder")).not.toHaveValue("");
     await page.getByLabel("Remote project folder").fill(cwd!);
+    await page.getByRole("button", { name: "Browse path", exact: true }).click();
+    await expect(page.getByRole("status")).toBeHidden({ timeout: 25_000 });
+    await expect(page.getByLabel("Remote project folder")).toHaveValue(cwd!);
+    await page.screenshot({ path: test.info().outputPath("ssh-folder-picker.png") });
     await page.getByRole("button", { name: "Connect", exact: true }).click();
     await expect(page.getByRole("dialog", { name: "Connect SSH workspace" })).toBeHidden({
       timeout: 90_000,
