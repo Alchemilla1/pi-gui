@@ -1,0 +1,72 @@
+name: Fork Windows release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable version already committed in the package files
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: fork-windows-release
+  cancel-in-progress: false
+jobs:
+  package:
+    if: github.repository == 'Alchemilla1/pi-gui' && github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Preserve repository line endings
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Validate versions
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Use a stable numeric version' }
+          node scripts/verify-release-version.mjs --tag "v$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Build unsigned fork candidate
+        run: |
+          pnpm --filter @pi-gui/desktop run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm --dir apps/desktop exec electron-builder --win --dir --publish never --config.npmRebuild=false --config.win.signAndEditExecutable=false
+      - run: pnpm --filter @pi-gui/desktop run verify:packaged-runtime-deps:windows
+      - name: Archive and checksum
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $release = 'apps/desktop/release'
+          $archive = "$release/pi-gui-$env:RELEASE_VERSION-win-x64.zip"
+          Compress-Archive -Path "$release/win-unpacked/*" -DestinationPath $archive
+          node apps/desktop/scripts/create-fork-update-manifest.mjs $archive $env:RELEASE_VERSION
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Upload reviewable candidate
+        uses: actions/upload-artifact@v6
+        with:
+          name: fork-windows-candidate
+          path: |
+            apps/desktop/release/*.zip
+            apps/desktop/release/pi-gui-update.json
+      - name: Create draft release only
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          $tag = "v$env:RELEASE_VERSION"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'A release with this version already exists; never replace published assets' }
+          gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --draft --title "Pi GUI Fork $env:RELEASE_VERSION" --notes 'Muelsyse + Codex fork. Unsigned Windows candidate. Publish only after installed-app, upgrade and rollback verification.' "apps/desktop/release/pi-gui-$env:RELEASE_VERSION-win-x64.zip" 'apps/desktop/release/pi-gui-update.json'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
