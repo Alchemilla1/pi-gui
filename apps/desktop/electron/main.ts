@@ -53,6 +53,11 @@ import { MAIN_DEV_RELOAD_MARKER } from "./dev-reload-main-probe";
 import { NotificationManager } from "./platform/notification-manager";
 import { NotificationPermissionService } from "./platform/notification-permission";
 import { checkForUpdate, initUpdateChecker, openReleasesPage } from "./platform/update-checker";
+import {
+  prepareWindowsForkUpdate,
+  applyPreparedWindowsUpdate,
+  acknowledgeUpdateStartup,
+} from "./platform/windows-fork-update";
 import { ThemeManager } from "./platform/theme-manager";
 import { windowBackgroundFor } from "../contracts/theme";
 import { TerminalService } from "./platform/terminal-service";
@@ -556,6 +561,9 @@ function createWindow(): BrowserWindow {
     if (!backgroundTestMode) {
       window.show();
     }
+    void acknowledgeUpdateStartup().catch((error: unknown) =>
+      console.error("Update health acknowledgement failed", error),
+    );
   });
   window.webContents.on("before-input-event", (event, input) => {
     if (input.type !== "keyDown") {
@@ -767,7 +775,10 @@ async function pickWorkspaceViaDialog(
   return runWindowScopedForWindow(window, () => addPickedWorkspace(window, workspacePath));
 }
 
+let updateInProgress = false;
 async function runManualUpdateCheck(): Promise<void> {
+  if (updateInProgress) return;
+  updateInProgress = true;
   const window = mainWindow && canPublishToWindow(mainWindow) ? mainWindow : undefined;
   const showDialog = (options: MessageBoxOptions) =>
     window ? dialog.showMessageBox(window, options) : dialog.showMessageBox(options);
@@ -782,13 +793,49 @@ async function runManualUpdateCheck(): Promise<void> {
         type: "info",
         title: "pi-gui",
         message: `Version ${result.latestVersion} is available.`,
-        detail: `You have ${result.currentVersion}.`,
-        buttons: ["Download", "Later"],
+        detail: `You have ${result.currentVersion}. Update source: Alchemilla1/pi-gui (Muelsyse + Codex).`,
+        buttons: [
+          process.platform === "win32" && app.isPackaged ? "Prepare update" : "Download",
+          "Later",
+        ],
         defaultId: 0,
         cancelId: 1,
       });
       if (choice.response === 0) {
-        await openReleasesPage(result.releaseUrl);
+        if (process.platform !== "win32" || !app.isPackaged)
+          await openReleasesPage(result.releaseUrl);
+        else {
+          const plan = await prepareWindowsForkUpdate(result.latestVersion);
+          const choice = await showDialog({
+            type: "info",
+            title: "Pi GUI update ready",
+            message: `Install version ${result.latestVersion} and restart?`,
+            detail:
+              "The download has been verified. Your previous application will be retained. Sessions and model credentials remain in their existing locations.",
+            buttons: ["Install and restart", "Later"],
+            defaultId: 1,
+            cancelId: 1,
+          });
+          if (choice.response === 0) {
+            const state = await store.getState();
+            if (state.workspaces.some((w) => w.sessions.some((s) => s.status === "running")))
+              throw new Error("A thread is running. Finish it before restarting for an update.");
+            if (
+              state.scheduledTasks.some(
+                (task) =>
+                  task.status === "active" &&
+                  task.nextRunAt &&
+                  Date.parse(task.nextRunAt) < Date.now() + 120000,
+              )
+            )
+              throw new Error(
+                "A scheduled task is due shortly. Let it finish or pause it before updating.",
+              );
+            await composerDraftFlusher.flush(windowOwner.allWindows());
+            await store.flushPersistence();
+            await applyPreparedWindowsUpdate(plan);
+          }
+        }
       }
       return;
     }
@@ -819,11 +866,32 @@ async function runManualUpdateCheck(): Promise<void> {
       detail: error instanceof Error ? error.message : String(error),
       buttons: ["OK"],
     }).catch(() => undefined);
+  } finally {
+    updateInProgress = false;
   }
 }
 
 function installApplicationMenu(): void {
   if (process.platform !== "darwin") {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        { label: "File", submenu: [{ role: "quit" }] },
+        { role: "editMenu" },
+        { role: "viewMenu" },
+        {
+          label: "Help",
+          submenu: [
+            {
+              id: CHECK_FOR_UPDATES_MENU_ITEM_ID,
+              label: "Check for Fork Updates…",
+              click: () => {
+                void runManualUpdateCheck().catch(console.error);
+              },
+            },
+          ],
+        },
+      ]),
+    );
     return;
   }
 

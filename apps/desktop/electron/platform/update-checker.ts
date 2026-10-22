@@ -1,9 +1,10 @@
 import { app, net, Notification, shell } from "electron";
+import { FORK_RELEASE_API, FORK_RELEASES_PAGE } from "./fork-release";
 
 // /releases/latest skips drafts and prereleases, so stable installs are only
 // told about stable releases.
-const RELEASES_URL = "https://api.github.com/repos/minghinmatthewlam/pi-gui/releases/latest";
-const RELEASES_PAGE = "https://github.com/minghinmatthewlam/pi-gui/releases";
+const RELEASES_URL = FORK_RELEASE_API;
+const RELEASES_PAGE = FORK_RELEASES_PAGE;
 
 const CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours
 const INITIAL_DELAY_MS = 15_000; // 15 seconds after launch
