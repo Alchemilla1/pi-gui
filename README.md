@@ -2,6 +2,9 @@
 
 The desktop app for the [pi](https://github.com/earendil-works/pi) coding agent.
 
+> This Muelsyse + Codex fork adds [SSH workspaces](./docs/ssh-workspaces.md) with host selection from SSH config, remote folder browsing, local history discovery, and desktop-backed thread and scheduling tools for remote sessions.
+> It also includes a [fork-specific Windows update and rollback mechanism](./docs/fork-update-maintenance.md); the upstream README below is retained, and its release links refer to upstream builds rather than this fork.
+
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/minghinmatthewlam/pi-gui?include_prereleases&label=release)](https://github.com/minghinmatthewlam/pi-gui/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](#install)
