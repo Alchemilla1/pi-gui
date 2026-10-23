@@ -217,6 +217,14 @@ function TimelineMessage({
   const forkable = sourceMessageIndex !== undefined;
   return (
     <article className="timeline-item timeline-item--assistant" ref={articleRef}>
+      {item.thinking ? (
+        <details className="timeline-thinking" style={{ marginBottom: 12 }}>
+          <summary style={{ cursor: "pointer", opacity: 0.75 }}>Thinking · 思考过程</summary>
+          <div style={{ maxHeight: 360, overflowY: "auto", padding: "12px 0" }}>
+            <MessageMarkdown text={item.thinking} />
+          </div>
+        </details>
+      ) : null}
       <MessageMarkdown
         annotationRoot
         onOpenWorkspaceFileLine={onOpenWorkspaceFileLine}

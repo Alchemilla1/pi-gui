@@ -353,14 +353,25 @@ function transcriptFromSources(
     }
 
     const text = messageText(message);
+    const thinking =
+      role === "assistant" && Array.isArray(message.content)
+        ? message.content
+            .filter(
+              (part) =>
+                isRecord(part) && part.type === "thinking" && typeof part.thinking === "string",
+            )
+            .map((part) => (part as { thinking: string }).thinking)
+            .join("\n\n")
+        : "";
     const attachments = messageAttachments(message);
-    if (text || attachments.length > 0) {
+    if (text || thinking || attachments.length > 0) {
       transcript.push({
         kind: "message",
         id: typeof message.id === "string" ? message.id : `${role}-${index}`,
         ...(typeof message.id === "string" ? { sourceMessageId: message.id } : {}),
         role,
         text,
+        ...(thinking ? { thinking } : {}),
         ...(attachments.length > 0 ? { attachments } : {}),
         createdAt,
       });

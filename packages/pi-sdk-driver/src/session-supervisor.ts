@@ -2645,7 +2645,8 @@ export class SessionSupervisor {
         this.updatePreviewFromMessage(record, event.message);
         if (
           event.message.role === "assistant" &&
-          event.assistantMessageEvent.type === "text_delta"
+          (event.assistantMessageEvent.type === "text_delta" ||
+            event.assistantMessageEvent.type === "thinking_delta")
         ) {
           return toDriverEvents(
             {
@@ -2653,6 +2654,9 @@ export class SessionSupervisor {
               sessionRef: record.ref,
               timestamp,
               text: event.assistantMessageEvent.delta ?? "",
+              ...(event.assistantMessageEvent.type === "thinking_delta"
+                ? { channel: "thinking" as const }
+                : {}),
             },
             record,
           );

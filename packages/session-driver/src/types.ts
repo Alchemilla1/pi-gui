@@ -194,6 +194,7 @@ export interface SessionUpdatedEvent extends SessionEventBase {
 export interface AssistantDeltaEvent extends SessionEventBase {
   readonly type: "assistantDelta";
   readonly text: string;
+  readonly channel?: "thinking";
 }
 
 /** Finalizes one assistant message while the containing run may continue. */

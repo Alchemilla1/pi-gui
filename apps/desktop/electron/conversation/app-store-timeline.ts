@@ -122,6 +122,7 @@ export function appendAssistantDelta(
   activeAssistantMessageBySession: Map<string, string>,
   sessionRef: SessionRef,
   text: string,
+  channel?: "thinking",
 ): void {
   const key = sessionKey(sessionRef);
   const transcript = [...(transcriptCache.get(key) ?? [])];
@@ -133,15 +134,23 @@ export function appendAssistantDelta(
     if (current?.kind === "message") {
       transcript[index] = {
         ...current,
-        text: `${current.text}${text}`,
+        ...(channel === "thinking"
+          ? { thinking: `${current.thinking ?? ""}${text}` }
+          : { text: `${current.text}${text}` }),
       };
     } else {
-      const message = makeTranscriptMessage("assistant", text);
+      const message = {
+        ...makeTranscriptMessage("assistant", channel ? "" : text),
+        ...(channel ? { thinking: text } : {}),
+      };
       transcript.push(message);
       activeAssistantMessageBySession.set(key, message.id);
     }
   } else {
-    const message = makeTranscriptMessage("assistant", text);
+    const message = {
+      ...makeTranscriptMessage("assistant", channel ? "" : text),
+      ...(channel ? { thinking: text } : {}),
+    };
     transcript.push(message);
     activeAssistantMessageBySession.set(key, message.id);
   }

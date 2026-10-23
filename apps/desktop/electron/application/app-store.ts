@@ -3460,6 +3460,7 @@ export class DesktopAppStore {
             this.sessionState.activeAssistantMessageBySession,
             event.sessionRef,
             event.text,
+            event.channel,
           );
           break;
         case "sessionOpened":
