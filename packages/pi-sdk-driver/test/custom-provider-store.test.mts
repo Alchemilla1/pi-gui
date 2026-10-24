@@ -11,6 +11,47 @@ const endpoint = {
   models: [{ id: "test-model" }],
 };
 
+await test("editing preserves reasoning, effort mappings, model APIs and provider headers", async () => {
+  await withStore(async (store, path) => {
+    const raw = {
+      baseUrl: "https://example.com",
+      api: "anthropic-messages",
+      headers: { "x-custom": "keep" },
+      models: [
+        {
+          id: "thinking-model",
+          reasoning: true,
+          thinkingLevelMap: { xhigh: "max" },
+          api: "anthropic-messages",
+          maxTokens: 8192,
+          compat: { supportsDeveloperRole: false },
+        },
+      ],
+    };
+    await writeFile(path, JSON.stringify({ providers: { custom: raw } }));
+    const entries = await store.list();
+    assert.equal(entries[0].api, "anthropic-messages");
+    assert.equal(entries[0].models[0].reasoning, true);
+    await store.set({ ...entries[0], baseUrl: "https://new.example.com" });
+    const saved = (
+      JSON.parse(await readFile(path, "utf8")) as { providers: { custom: typeof raw } }
+    ).providers.custom;
+    assert.equal(saved.api, "anthropic-messages");
+    assert.deepEqual(saved.models, raw.models);
+    assert.deepEqual(saved.headers, raw.headers);
+    await store.set({
+      ...entries[0],
+      api: "openai-responses",
+      models: [{ id: "thinking-model", reasoning: false }],
+    });
+    const changed = (
+      JSON.parse(await readFile(path, "utf8")) as { providers: { custom: typeof raw } }
+    ).providers.custom;
+    assert.equal(changed.api, "openai-responses");
+    assert.equal(changed.models[0].reasoning, false);
+  });
+});
+
 async function withStore(
   run: (store: CustomProviderStore, path: string) => Promise<void>,
 ): Promise<void> {

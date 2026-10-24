@@ -55,9 +55,11 @@ export type DesktopNotificationPermissionStatus =
 export interface CustomProviderModelConfig {
   readonly id: string;
   readonly contextWindow?: number;
+  readonly reasoning?: boolean;
 }
 
 export interface CustomProviderConfig {
+  readonly api?: "openai-completions" | "openai-responses" | "anthropic-messages";
   readonly providerId: string;
   readonly baseUrl: string;
   readonly apiKey?: string;
@@ -65,6 +67,7 @@ export interface CustomProviderConfig {
 }
 
 export interface CustomProviderProbeInput {
+  readonly api?: CustomProviderConfig["api"];
   readonly baseUrl: string;
   readonly apiKey?: string;
 }

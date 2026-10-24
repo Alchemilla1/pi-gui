@@ -56,7 +56,7 @@ export class CustomProviderStore {
           `Provider ID "${input.providerId}" already exists in models.json and is not managed by pi-gui.`,
         );
       }
-      providers[input.providerId] = toProviderConfig(input);
+      providers[input.providerId] = toProviderConfig(input, isRecord(existing) ? existing : {});
       await atomicWriteJson(this.modelsJsonPath, data);
     });
   }
@@ -86,6 +86,11 @@ export class CustomProviderStore {
 }
 
 function validateInput(input: CustomProviderInput): void {
+  if (
+    input.api !== undefined &&
+    !["openai-completions", "openai-responses", "anthropic-messages"].includes(input.api)
+  )
+    throw new Error("Unsupported provider protocol");
   if (!CUSTOM_PROVIDER_ID_PATTERN.test(input.providerId)) {
     throw new Error(
       `Provider ID must be lowercase alphanumerics or dashes (max 64 chars): ${JSON.stringify(input.providerId)}`,
@@ -100,6 +105,8 @@ function validateInput(input: CustomProviderInput): void {
     throw new Error("At least one model is required.");
   }
   for (const model of input.models) {
+    if (model.reasoning !== undefined && typeof model.reasoning !== "boolean")
+      throw new Error("Model reasoning must be a boolean");
     if (!model.id || typeof model.id !== "string") {
       throw new Error("Model id is required.");
     }
@@ -109,15 +116,29 @@ function validateInput(input: CustomProviderInput): void {
   }
 }
 
-function toProviderConfig(input: CustomProviderInput): Record<string, unknown> {
+function toProviderConfig(
+  input: CustomProviderInput,
+  existing: Record<string, unknown>,
+): Record<string, unknown> {
   const trimmedKey = input.apiKey?.trim();
+  const api = input.api ?? existing.api ?? OPENAI_COMPLETIONS_API;
   return {
-    baseUrl: input.baseUrl,
-    api: OPENAI_COMPLETIONS_API,
+    ...existing,
+    baseUrl: api === "anthropic-messages" ? input.baseUrl.replace(/\/v1\/?$/, "") : input.baseUrl,
+    api,
     apiKey: trimmedKey ? trimmedKey : CUSTOM_PROVIDER_PLACEHOLDER_API_KEY,
     [PI_GUI_CUSTOM_PROVIDER_MARKER]: true,
     models: input.models.map((model) => {
-      const entry: Record<string, unknown> = { id: model.id };
+      const previous = Array.isArray(existing.models)
+        ? (existing.models.find(
+            (value: unknown) => isRecord(value) && value.id === model.id,
+          ) as unknown)
+        : undefined;
+      const entry: Record<string, unknown> = {
+        ...(isRecord(previous) ? previous : {}),
+        id: model.id,
+      };
+      if (model.reasoning !== undefined) entry.reasoning = model.reasoning;
       if (model.contextWindow !== undefined) {
         entry.contextWindow = model.contextWindow;
       }
@@ -156,15 +177,22 @@ function readCustomProviders(data: ModelsJson): readonly CustomProviderEntry[] {
             }
             const contextWindow =
               typeof modelConfig.contextWindow === "number" ? modelConfig.contextWindow : undefined;
-            return contextWindow !== undefined
-              ? { id: modelConfig.id, contextWindow }
-              : { id: modelConfig.id };
+            return {
+              id: modelConfig.id,
+              ...(contextWindow !== undefined ? { contextWindow } : {}),
+              ...(typeof modelConfig.reasoning === "boolean"
+                ? { reasoning: modelConfig.reasoning }
+                : {}),
+            };
           })
           .filter((entry): entry is CustomProviderModelInput => entry !== undefined)
       : [];
     const rawApiKey = typeof config.apiKey === "string" ? config.apiKey : undefined;
     const apiKey = rawApiKey === CUSTOM_PROVIDER_PLACEHOLDER_API_KEY ? undefined : rawApiKey;
     entries.push({
+      ...(config.api === "anthropic-messages" || config.api === "openai-responses"
+        ? { api: config.api }
+        : {}),
       providerId,
       baseUrl,
       ...(apiKey !== undefined ? { apiKey } : {}),
@@ -183,7 +211,9 @@ function isPiGuiCustomProviderConfig(providerId: string, config: Record<string, 
     return false;
   }
   return (
-    config.api === OPENAI_COMPLETIONS_API &&
+    [OPENAI_COMPLETIONS_API, "openai-responses", "anthropic-messages"].includes(
+      String(config.api),
+    ) &&
     typeof config.baseUrl === "string" &&
     Array.isArray(config.models) &&
     config.models.length > 0

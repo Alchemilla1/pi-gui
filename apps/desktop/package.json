@@ -1,7 +1,7 @@
 {
   "name": "@pi-gui/desktop",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "Matthew Lam",
   "license": "MIT",
   "description": "Codex-style desktop shell for pi",

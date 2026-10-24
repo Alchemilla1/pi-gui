@@ -335,7 +335,16 @@ export function expectCustomProviderConfig(value: unknown): CustomProviderConfig
   if (!Array.isArray(record.models)) {
     throw new TypeError("config.models must be an array");
   }
+  const api = record.api;
+  if (
+    api !== undefined &&
+    api !== "openai-completions" &&
+    api !== "openai-responses" &&
+    api !== "anthropic-messages"
+  )
+    throw new TypeError("Unsupported provider protocol");
   return {
+    ...(api !== undefined ? { api } : {}),
     providerId: expectNonEmptyString(record.providerId, "config.providerId"),
     baseUrl: expectNonEmptyString(record.baseUrl, "config.baseUrl"),
     apiKey: expectOptionalString(record.apiKey, "config.apiKey"),
@@ -352,6 +361,9 @@ export function expectCustomProviderConfig(value: unknown): CustomProviderConfig
       }
       return {
         id: expectNonEmptyString(entry.id, `config.models[${index}].id`),
+        ...(entry.reasoning !== undefined
+          ? { reasoning: expectBoolean(entry.reasoning, "model.reasoning") }
+          : {}),
         contextWindow,
       };
     }),
@@ -392,7 +404,16 @@ export function expectNewMcpServerInput(value: unknown): NewMcpServerInput {
 
 export function expectCustomProviderProbeInput(value: unknown): CustomProviderProbeInput {
   const record = expectRecord(value, "input");
+  const api = record.api;
+  if (
+    api !== undefined &&
+    api !== "openai-completions" &&
+    api !== "openai-responses" &&
+    api !== "anthropic-messages"
+  )
+    throw new TypeError("Unsupported provider protocol");
   return {
+    ...(api !== undefined ? { api } : {}),
     baseUrl: expectNonEmptyString(record.baseUrl, "input.baseUrl"),
     apiKey: expectOptionalString(record.apiKey, "input.apiKey"),
   };

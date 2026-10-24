@@ -167,6 +167,9 @@ function CustomEndpointDialog({
   const initial = mode.kind === "edit" ? mode.original : undefined;
   const [providerId, setProviderId] = useState(initial?.providerId ?? "");
   const [baseUrl, setBaseUrl] = useState(initial?.baseUrl ?? "");
+  const [protocol, setProtocol] = useState<NonNullable<CustomProviderConfig["api"]>>(
+    initial?.api ?? "openai-completions",
+  );
   const [apiKey, setApiKey] = useState(initial?.apiKey ?? "");
   const [models, setModels] = useState<CustomProviderModelConfig[]>(
     initial ? [...initial.models] : [],
@@ -214,6 +217,7 @@ function CustomEndpointDialog({
     setProbePending(true);
     setProbeError(undefined);
     const result = await api.probeCustomProviderModels({
+      api: protocol,
       baseUrl: baseUrl.trim(),
       apiKey: apiKey.trim() ? apiKey.trim() : undefined,
     });
@@ -263,6 +267,7 @@ function CustomEndpointDialog({
     setSavePending(true);
     setFormError(undefined);
     const error = await onSave({
+      api: protocol,
       providerId: providerId.trim(),
       baseUrl: baseUrl.trim(),
       ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}),
@@ -304,8 +309,8 @@ function CustomEndpointDialog({
             {isEdit ? "Edit custom endpoint" : "Add custom endpoint"}
           </div>
           <p className="extension-dialog__body">
-            Configure an OpenAI-compatible server. The endpoint and API key are stored in plaintext
-            at
+            Configure an OpenAI or Anthropic compatible server. The endpoint and API key are stored
+            in plaintext at
             <code> ~/.pi/agent/models.json</code>.
           </p>
           <label className="settings-field">
@@ -342,6 +347,27 @@ function CustomEndpointDialog({
             <span className="settings-row__description">
               Include the <code>/v1</code> suffix. Ollama: <code>http://localhost:11434/v1</code>.
               vLLM: <code>http://localhost:8000/v1</code>.
+            </span>
+          </label>
+          <label className="settings-field">
+            <span>API protocol</span>
+            <select
+              aria-label="API protocol"
+              className="settings-search"
+              value={protocol}
+              disabled={savePending}
+              onChange={(event) =>
+                setProtocol(event.target.value as NonNullable<CustomProviderConfig["api"]>)
+              }
+            >
+              <option value="openai-completions">OpenAI Chat Completions</option>
+              <option value="openai-responses">OpenAI Responses</option>
+              <option value="anthropic-messages">Anthropic Messages</option>
+            </select>
+            <span className="settings-row__description">
+              For Anthropic Messages, use the service root (without /v1/messages); a trailing /v1 is
+              normalized on save. Model IDs can also be entered manually. Existing per-model
+              overrides in models.json are preserved.
             </span>
           </label>
           <label className="settings-field">
@@ -390,6 +416,30 @@ function CustomEndpointDialog({
               onManualAdd={handleManualAdd}
               disabled={savePending}
             />
+            {models.map((model) => (
+              <label
+                key={model.id}
+                className="settings-field"
+                style={{ display: "flex", gap: 8, alignItems: "center" }}
+              >
+                <input
+                  type="checkbox"
+                  aria-label={`Reasoning supported: ${model.id}`}
+                  checked={model.reasoning === true}
+                  disabled={savePending}
+                  onChange={(event) =>
+                    setModels((current) =>
+                      current.map((entry) =>
+                        entry.id === model.id
+                          ? { ...entry, reasoning: event.target.checked }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
+                <span>{model.id}: supports reasoning</span>
+              </label>
+            ))}
             <p className="settings-row__description">
               Tool calling is required. Smaller models (&lt; 7B) often do not emit OpenAI-style
               function calls cleanly.

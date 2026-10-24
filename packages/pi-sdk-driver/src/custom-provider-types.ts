@@ -1,9 +1,13 @@
 export interface CustomProviderModelInput {
   readonly id: string;
   readonly contextWindow?: number;
+  readonly reasoning?: boolean;
 }
 
+export type CustomProviderApi = "openai-completions" | "openai-responses" | "anthropic-messages";
+
 export interface CustomProviderInput {
+  readonly api?: CustomProviderApi;
   readonly providerId: string;
   readonly baseUrl: string;
   readonly apiKey?: string;
@@ -11,6 +15,7 @@ export interface CustomProviderInput {
 }
 
 export interface CustomProviderEntry {
+  readonly api?: CustomProviderApi;
   readonly providerId: string;
   readonly baseUrl: string;
   readonly apiKey?: string;

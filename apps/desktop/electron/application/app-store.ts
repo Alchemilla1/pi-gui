@@ -1613,11 +1613,13 @@ export class DesktopAppStore {
     await this.initialize();
     const entries = await this.driver.runtimeSupervisor.listCustomProviders();
     return entries.map((entry) => ({
+      ...(entry.api !== undefined ? { api: entry.api } : {}),
       providerId: entry.providerId,
       baseUrl: entry.baseUrl,
       ...(entry.apiKey !== undefined ? { apiKey: entry.apiKey } : {}),
       models: entry.models.map((model) => ({
         id: model.id,
+        ...(model.reasoning !== undefined ? { reasoning: model.reasoning } : {}),
         ...(model.contextWindow !== undefined ? { contextWindow: model.contextWindow } : {}),
       })),
     }));
@@ -1631,11 +1633,13 @@ export class DesktopAppStore {
       workspaceId,
       (ws) =>
         this.driver.runtimeSupervisor.setCustomProvider(ws, {
+          ...(config.api !== undefined ? { api: config.api } : {}),
           providerId: config.providerId,
           baseUrl: config.baseUrl,
           ...(config.apiKey !== undefined ? { apiKey: config.apiKey } : {}),
           models: config.models.map((model) => ({
             id: model.id,
+            ...(model.reasoning !== undefined ? { reasoning: model.reasoning } : {}),
             ...(model.contextWindow !== undefined ? { contextWindow: model.contextWindow } : {}),
           })),
         }),

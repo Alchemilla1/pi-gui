@@ -1712,12 +1712,18 @@ async function probeCustomProviderModels(
   if (!baseUrl || !isValidHttpBaseUrl(baseUrl)) {
     return { ok: false, error: "Base URL must start with http:// or https://" };
   }
-  const target = `${baseUrl.replace(/\/+$/, "")}/models`;
+  const root = baseUrl.replace(/\/+$/, "");
+  const target = `${root}${input.api === "anthropic-messages" && !root.endsWith("/v1") ? "/v1" : ""}/models`;
   const apiKey = input.apiKey?.trim();
   try {
     const response = await net.fetch(target, {
       method: "GET",
-      headers: apiKey ? { Authorization: `Bearer ${apiKey}` } : undefined,
+      headers:
+        input.api === "anthropic-messages"
+          ? { "anthropic-version": "2023-06-01", ...(apiKey ? { "x-api-key": apiKey } : {}) }
+          : apiKey
+            ? { Authorization: `Bearer ${apiKey}` }
+            : undefined,
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) {
