@@ -22,7 +22,7 @@ export async function performExtensionViewHostAction(
     readonly saveComposerDraft: (window: BrowserWindow) => Promise<void>;
   },
   context: DesktopExtensionConnectionContext & { readonly action: DesktopHostAction },
-): Promise<void> {
+): Promise<void | (() => void)> {
   const contents = webContents.fromId(context.senderId);
   if (!contents || contents.isDestroyed()) throw new Error("The requesting window is closed");
   const window = owners.windows.windowForSender(contents);
@@ -41,16 +41,15 @@ export async function performExtensionViewHostAction(
   const action = context.action;
   if (action.type === "openUrl" || action.type === "openThread") {
     // Links and threads run through the same checked operations as card buttons.
+    let afterResultReceived: (() => void) | undefined;
     const host: AppOperationHost = {
       workspacePath: (workspaceId) => owners.store.getWorkspacePath(workspaceId),
       openExternal: owners.openExternal,
       runExtensionCommand: () => Promise.reject(new Error("Views can't run commands")),
       workspaces: () => owners.store.getWorkspaceRecords(),
-      // Selecting the thread closes this view, so the view's call settles once the thread is
-      // found. The switch starts after that result has gone out: `setImmediate` runs only once
-      // the awaits that send it have unwound.
+      // Navigation destroys the frame. Wait for its acknowledgement after the action promise settles.
       selectThread: async (resolve) => {
-        setImmediate(() => {
+        afterResultReceived = () => {
           // The switch drops the composer's debounced draft, so save it first.
           void owners
             .saveComposerDraft(window)
@@ -71,7 +70,7 @@ export async function performExtensionViewHostAction(
               }),
             )
             .catch((error: unknown) => console.error("[extension-view] open thread failed", error));
-        });
+        };
       },
     };
     await runExtensionAction(
@@ -81,7 +80,7 @@ export async function performExtensionViewHostAction(
         ? { type: "url", url: action.url }
         : { type: "openThread", sessionId: action.sessionId },
     );
-    return;
+    return afterResultReceived;
   }
   const workspacePath = owners.store.getWorkspacePath(context.target.workspaceId);
   if (!workspacePath) throw new Error("The task checkout is unavailable");

@@ -80,7 +80,9 @@ export function checkRendererBoundary(root) {
     );
     const fail = (node, reason) => {
       const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
-      failures.push(`${path.relative(root, file)}:${line + 1}: ${reason}`);
+      failures.push(
+        `${path.relative(root, file).split(path.sep).join("/")}:${line + 1}: ${reason}`,
+      );
     };
     const inspect = (expression, repair = "Use the preload API instead.") => {
       if (!expression || !ts.isStringLiteralLike(expression)) {
@@ -133,12 +135,12 @@ export function checkRendererBoundary(root) {
       if (isHostOnlyEntrypointFile(root, target)) {
         fail(
           expression,
-          `Forbidden renderer runtime import of '${path.relative(root, target)}' through '${specifier}'. Use an explicit type-only import.`,
+          `Forbidden renderer runtime import of '${path.relative(root, target).split(path.sep).join("/")}' through '${specifier}'. Use an explicit type-only import.`,
         );
       } else if (isInside(main, target)) {
         fail(
           expression,
-          `Renderer reaches main/preload implementation '${path.relative(root, target)}'. ${repair}`,
+          `Renderer reaches main/preload implementation '${path.relative(root, target).split(path.sep).join("/")}'. ${repair}`,
         );
       } else if (isInside(root, target) && !target.includes(`${path.sep}node_modules${path.sep}`)) {
         if (/\.d\.[cm]?ts$/.test(target)) {

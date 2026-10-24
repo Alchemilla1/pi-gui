@@ -106,24 +106,24 @@ test("an extension view opens https links and threads beside its own", async () 
     const frame = window.frameLocator('[data-testid="extension-view-frame"]');
     const status = frame.getByRole("status");
 
-    await frame.getByRole("button", { name: "Open pull request" }).click();
+    await frame.getByRole("button", { name: "Open pull request" }).press("Enter");
     await expect
       .poll(openedLinks)
       .toEqual(["https://github.com/minghinmatthewlam/pi-gui/pull/220"]);
-    await frame.getByRole("button", { name: "Open plain link" }).click();
+    await frame.getByRole("button", { name: "Open plain link" }).press("Enter");
     await expect(status).toHaveText("Extensions can only open https links");
     expect(await openedLinks()).toHaveLength(1);
 
     // Only threads in the view's own folder open; the app stays where it was otherwise.
     await frame.getByLabel("Thread id").fill(otherFolderThread);
-    await frame.getByRole("button", { name: "Open thread" }).click();
+    await frame.getByRole("button", { name: "Open thread" }).press("Enter");
     await expect(status).toHaveText("That thread isn't open in this folder");
     await expect(window.locator(".chat-header__title")).toHaveText("Current thread");
 
     await frame.getByLabel("Thread id").fill(earlierThread);
     const viewLogs: string[] = [];
     window.on("console", (message) => viewLogs.push(message.text()));
-    await frame.getByRole("button", { name: "Open thread" }).click();
+    await frame.getByRole("button", { name: "Open thread" }).press("Enter");
     await expect(window.locator(".chat-header__title")).toHaveText("Earlier thread");
     // The view's call succeeds even though switching threads then closes the view.
     await expect.poll(() => viewLogs).toContain("view saw thread open");

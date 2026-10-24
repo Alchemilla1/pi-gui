@@ -28,7 +28,7 @@ export function registerExtensionViewRequests(
   owner: DesktopExtensionViewOwner,
 ): void {
   const senders = new Map<number, Electron.WebContents>();
-  const pendingActions = new Map<string, Set<string>>();
+  const pendingActions = new Map<string, Map<string, (() => void) | undefined>>();
   const track = (contents: Electron.WebContents) => {
     if (!senders.has(contents.id)) {
       senders.set(contents.id, contents);
@@ -71,6 +71,13 @@ export function registerExtensionViewRequests(
           senderId: contents.id,
         },
         (message) => {
+          if (
+            message &&
+            typeof message === "object" &&
+            "type" in message &&
+            message.type === "closed"
+          )
+            pendingActions.delete(connectionId);
           if (!contents.isDestroyed())
             contents.send(desktopIpc.extensionViewMessage, { connectionId, message });
         },
@@ -83,6 +90,16 @@ export function registerExtensionViewRequests(
   handle(desktopIpc.sendExtensionViewMessage, decodeMessageRequest, async (input, request) => {
     const contents = track(request.contents);
     const { connectionId, message } = input;
+    if (message.type === "host-action-result-received") {
+      owner.getConnectionContext(connectionId, contents.id);
+      const requestId = expectNonEmptyString(message.requestId, "requestId");
+      const pending = pendingActions.get(connectionId);
+      const afterResultReceived = pending?.get(requestId);
+      pending?.delete(requestId);
+      if (pending?.size === 0) pendingActions.delete(connectionId);
+      afterResultReceived?.();
+      return;
+    }
     if (message.type !== "host-action") {
       await owner.receive(connectionId, contents.id, message);
       return;
@@ -93,7 +110,7 @@ export function registerExtensionViewRequests(
     owner.getConnectionContext(connectionId, contents.id);
     let pending = pendingActions.get(connectionId);
     if (!pending) {
-      pending = new Set();
+      pending = new Map();
       pendingActions.set(connectionId, pending);
     }
     if (pending.has(requestId) || pending.size >= 32) {
@@ -108,14 +125,15 @@ export function registerExtensionViewRequests(
       });
       return;
     }
-    pending.add(requestId);
+    pending.set(requestId, undefined);
     let result: { type: "host-action-result"; requestId: string; ok: boolean; error?: string };
     try {
-      await owner.invokeHostAction(
+      const afterResultReceived = await owner.invokeHostAction(
         connectionId,
         contents.id,
         parseDesktopHostAction(message.action),
       );
+      pending.set(requestId, afterResultReceived || undefined);
       result = { type: "host-action-result", requestId, ok: true };
     } catch (error) {
       result = {
@@ -125,8 +143,7 @@ export function registerExtensionViewRequests(
         error: error instanceof Error ? error.message : "Extension action failed",
       };
     }
-    pending.delete(requestId);
-    if (pending.size === 0) pendingActions.delete(connectionId);
+
     if (!contents.isDestroyed())
       contents.send(desktopIpc.extensionViewMessage, { connectionId, message: result });
   });
@@ -135,6 +152,7 @@ export function registerExtensionViewRequests(
     (raw) => expectNonEmptyString(raw, "connectionId"),
     (connectionId, request) => {
       owner.closeConnection(connectionId, track(request.contents).id);
+      pendingActions.delete(connectionId);
     },
   );
 }

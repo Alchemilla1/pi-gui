@@ -51,7 +51,7 @@ export interface DesktopExtensionViewOwnerOptions {
   readonly hostAssets?: Readonly<Record<string, DesktopExtensionHostAsset>>;
   readonly onHostAction: (
     context: DesktopExtensionConnectionContext & { readonly action: DesktopHostAction },
-  ) => Promise<void>;
+  ) => Promise<void | (() => void)>;
   readonly onDiagnostic?: (target: SessionRef, source: string, message: string) => void;
   readonly activationTimeoutMs?: number;
 }
@@ -252,9 +252,9 @@ export class DesktopExtensionViewOwner {
     connectionId: string,
     senderId: number,
     action: DesktopHostAction,
-  ): Promise<void> {
+  ): Promise<void | (() => void)> {
     const context = this.getConnectionContext(connectionId, senderId);
-    await this.options.onHostAction({ ...context, action });
+    return this.options.onHostAction({ ...context, action });
   }
 
   closeConnection(connectionId: string, senderId: number): void {

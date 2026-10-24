@@ -19,7 +19,7 @@ export function checkWorkspaceTypechecks(root, pnpmPath) {
     const manifest = JSON.parse(readFileSync(path.join(workspace.path, "package.json"), "utf8"));
     if (typeof manifest.scripts?.typecheck !== "string" || !manifest.scripts.typecheck.trim()) {
       failures.push(
-        `${path.relative(root, workspace.path)}/package.json: missing scripts.typecheck. Add a typecheck command so this workspace participates in CI.`,
+        `${path.relative(root, workspace.path).split(path.sep).join("/")}/package.json: missing scripts.typecheck. Add a typecheck command so this workspace participates in CI.`,
       );
     }
   }

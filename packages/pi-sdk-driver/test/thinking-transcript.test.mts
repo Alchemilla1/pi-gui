@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { transcriptFromMessages } from "../dist/session-supervisor-utils.js";
-test("thinking-only and mixed messages survive transcript projection without signatures", () => {
+await test("thinking-only and mixed messages survive transcript projection without signatures", () => {
   const items = transcriptFromMessages([
     {
       role: "assistant",

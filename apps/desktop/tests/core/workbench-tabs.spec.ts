@@ -523,8 +523,8 @@ test("shows and selects GPT-6 Sol from the upgraded Pi model catalog", async ({}
     await dropdown.getByRole("button", { name: /GPT-6 Sol/ }).click();
     await expect(badge).toHaveText("openai:gpt-6-sol");
     await expect(
-      window.locator(".composer").getByRole("button", { name: "medium", exact: true }),
-    ).toBeVisible();
+      window.locator(".composer").getByRole("button", { name: "Thinking level", exact: true }),
+    ).toHaveText("medium");
     await window.screenshot({ path: testInfo.outputPath("gpt-6-sol-selected.png") });
   } finally {
     await harness.close();

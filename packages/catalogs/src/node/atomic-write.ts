@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdir, open, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 
 /** Suffix of the transient files writeFileAtomic creates before renaming into place. */
 export const TMP_SUFFIX = ".tmp";
@@ -38,7 +39,23 @@ export async function writeFileAtomic(filePath: string, data: string | Uint8Arra
   }
 
   try {
-    await rename(tmpPath, filePath);
+    // Windows can temporarily lock the destination during another atomic replace
+    // or a reader/virus scan. Keep the old file intact and retry only that rename.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await rename(tmpPath, filePath);
+        break;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (
+          process.platform !== "win32" ||
+          attempt >= 8 ||
+          !["EPERM", "EACCES", "EBUSY"].includes(code ?? "")
+        )
+          throw error;
+        await delay(Math.min(10 * 2 ** attempt, 250));
+      }
+    }
   } catch (error) {
     await rm(tmpPath, { force: true }).catch(() => {});
     throw error;

@@ -57,6 +57,7 @@ window.addEventListener('message', async (event) => {
       pending.delete(data.requestId);
       if (data.ok === true) request.resolve();
       else request.reject(new Error(typeof data.error === 'string' ? data.error : 'The action could not be completed'));
+      queueMicrotask(() => port.postMessage({type:'host-action-result-received',requestId:data.requestId}));
     } else connection.receive(data);
   };
   port.onmessageerror = () => connection.close('Invalid frame message');

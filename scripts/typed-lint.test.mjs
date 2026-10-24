@@ -133,7 +133,7 @@ async function workspaceLintFailures(workspaceRoot) {
     );
     if (missing.length)
       failures.push(
-        `${path.relative(workspaceRoot, project.path)}: add a typed project in eslint.config.mjs; missing ${missing.join(", ")}.`,
+        `${path.relative(workspaceRoot, project.path).split(path.sep).join("/")}: add a typed project in eslint.config.mjs; missing ${missing.join(", ")}.`,
       );
   }
   return failures;
