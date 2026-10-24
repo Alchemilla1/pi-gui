@@ -54,3 +54,7 @@ now forwards that initial content before subsequent deltas, so fast or buffered
 responses no longer lose their reasoning in the live GUI. A protocol fixture
 reproduced the missing initial prefix before the fix and verifies the complete
 text afterward; the live diagnostic records initial versus total thinking lengths.
+The live check distinguishes the conversation response from background title requests
+and compares returned thinking with the transcript. An upstream response with no
+thinking must not create a thinking panel; the deterministic fixture separately
+requires exact thinking and answer text without missing or duplicated content.

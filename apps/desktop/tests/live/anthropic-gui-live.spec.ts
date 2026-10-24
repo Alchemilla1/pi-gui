@@ -12,7 +12,7 @@ import {
   getSelectedTranscript,
 } from "../helpers/electron-app";
 
-test("GUI receives a real Anthropic Messages answer and thinking from the configured gateway", async () => {
+test("GUI matches the real Anthropic answer and thinking returned by the gateway", async () => {
   test.setTimeout(90000);
   const source = process.env.PI_APP_REAL_AUTH_SOURCE_DIR;
   test.skip(process.env.PI_APP_REAL_AUTH !== "1" || !source, "Explicit real-auth source required");
@@ -35,14 +35,22 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
     thinkingChars: number;
     initialThinkingChars: number;
     status?: number;
-  } = { thinkingChars: 0, initialThinkingChars: 0 };
+    isAnswer: boolean;
+  }[] = [];
   const relay = createServer((req, res) => {
     const forward = async () => {
       let raw = "";
       for await (const chunk of req) raw += String(chunk);
       const body = JSON.parse(raw) as Record<string, unknown>;
-      wire.thinking = body.thinking;
-      wire.outputConfig = body.output_config;
+      const call: (typeof wire)[number] = {
+        thinking: body.thinking,
+        outputConfig: body.output_config,
+        thinkingChars: 0,
+        initialThinkingChars: 0,
+        isAnswer: false,
+      };
+      wire.push(call);
+      let responseText = "";
       const response = await fetch(provider.baseUrl.replace(/\/v1\/?$/, "") + req.url, {
         method: "POST",
         headers: {
@@ -53,7 +61,7 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
         body: raw,
         signal: AbortSignal.timeout(60000),
       });
-      wire.status = response.status;
+      call.status = response.status;
       res.writeHead(response.status, {
         "Content-Type": response.headers.get("content-type") ?? "text/event-stream",
       });
@@ -69,14 +77,16 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
             buffered = buffered.slice(end + 1);
             if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
             const event = JSON.parse(line.slice(6)) as {
-              delta?: { thinking?: string };
-              content_block?: { thinking?: string };
+              delta?: { thinking?: string; text?: string };
+              content_block?: { thinking?: string; text?: string };
             };
-            wire.thinkingChars +=
+            call.thinkingChars +=
               event.delta?.thinking?.length ?? event.content_block?.thinking?.length ?? 0;
-            wire.initialThinkingChars += event.content_block?.thinking?.length ?? 0;
+            call.initialThinkingChars += event.content_block?.thinking?.length ?? 0;
+            responseText += event.delta?.text ?? event.content_block?.text ?? "";
           }
         }
+      call.isAnswer = responseText.includes("ANTHROPIC_GUI_LIVE_OK 437");
       res.end();
     };
     forward().catch(() => {
@@ -156,12 +166,25 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
       )
       .toContain("ANTHROPIC_GUI_LIVE_OK 437");
     await writeFile(test.info().outputPath("anthropic-wire.json"), JSON.stringify(wire));
+    const answer = wire.find((call) => call.isAnswer);
     expect(
-      wire.thinkingChars,
-      "The gateway must return thinking before the GUI can display it",
-    ).toBeGreaterThan(0);
-    await expect(page.locator("details.timeline-thinking").first()).toBeVisible();
-    await page.locator("details.timeline-thinking summary").first().click();
+      answer,
+      "The observed response must be the conversation, not a title request",
+    ).toBeDefined();
+    const transcript = (await getSelectedTranscript(page))?.transcript ?? [];
+    const displayedChars = transcript.reduce(
+      (total, item) =>
+        total +
+        (item.kind === "message" && item.role === "assistant" ? (item.thinking?.length ?? 0) : 0),
+      0,
+    );
+    expect(displayedChars).toBe(answer!.thinkingChars);
+    if (answer!.thinkingChars > 0) {
+      await expect(page.locator("details.timeline-thinking").first()).toBeVisible();
+      await page.locator("details.timeline-thinking summary").first().click();
+    } else {
+      await expect(page.locator("details.timeline-thinking")).toHaveCount(0);
+    }
     await page.screenshot({ path: test.info().outputPath("anthropic-live.png") });
   } finally {
     await harness.close();
