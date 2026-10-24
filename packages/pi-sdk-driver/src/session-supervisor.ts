@@ -303,6 +303,10 @@ export class SessionSupervisor {
   private readonly onTurnCaptureBoundary: PiSdkDriverOptions["onTurnCaptureBoundary"];
   private readonly turnCaptureTimeoutMs: number | undefined;
   private readonly records = new Map<string, ManagedSessionRecord>();
+  private readonly streamedContentLengths = new WeakMap<
+    ManagedSessionRecord,
+    Map<number, number>
+  >();
   /** Latest plan limits a provider reported, shared by every session on that provider. */
   private readonly planLimitsByProvider = new Map<string, SessionPlanLimits>();
   private readonly ensureRecordInFlight = new Map<string, Promise<ManagedSessionRecord>>();
@@ -2610,6 +2614,7 @@ export class SessionSupervisor {
         return [sessionUpdatedEvent(record)];
       case "message_start":
       case "message_end":
+        if (event.message.role === "assistant") this.streamedContentLengths.delete(record);
         // pi emits both for a user message; only the start may match, or a second queued
         // message with the same text would count as started too.
         if (event.type === "message_start" && event.message.role === "user") {
@@ -2641,51 +2646,55 @@ export class SessionSupervisor {
           );
         }
         return [sessionUpdatedEvent(record)];
-      case "message_update":
+      case "message_update": {
         this.updatePreviewFromMessage(record, event.message);
+        const update = event.assistantMessageEvent;
         if (
           event.message.role === "assistant" &&
-          (event.assistantMessageEvent.type === "text_start" ||
-            event.assistantMessageEvent.type === "thinking_start")
+          (update.type === "text_start" ||
+            update.type === "text_delta" ||
+            update.type === "text_end" ||
+            update.type === "thinking_start" ||
+            update.type === "thinking_delta" ||
+            update.type === "thinking_end")
         ) {
-          // Anthropic-compatible servers may put content in the start block,
-          // rather than sending all of it in subsequent deltas.
-          const update = event.assistantMessageEvent;
-          const block = update.partial.content[update.contentIndex];
-          const text =
-            block?.type === "thinking" ? block.thinking : block?.type === "text" ? block.text : "";
-          if (text) {
+          // Provider start blocks may already contain text, and Pi's partial objects
+          // can advance while queued events are consumed. Emit each block's unseen
+          // suffix once, rather than counting both the snapshot and its later deltas.
+          const block = update.partial?.content[update.contentIndex];
+          const content =
+            block?.type === "thinking"
+              ? block.thinking
+              : block?.type === "text"
+                ? block.text
+                : undefined;
+          let text = "";
+          if (content !== undefined) {
+            let lengths = this.streamedContentLengths.get(record);
+            if (!lengths) {
+              lengths = new Map();
+              this.streamedContentLengths.set(record, lengths);
+            }
+            const previous = lengths.get(update.contentIndex) ?? 0;
+            text = content.slice(previous);
+            lengths.set(update.contentIndex, Math.max(previous, content.length));
+          } else if (update.type === "text_delta" || update.type === "thinking_delta") {
+            text = update.delta ?? "";
+          }
+          if (text)
             return toDriverEvents(
               {
                 type: "assistantDelta" as const,
                 sessionRef: record.ref,
                 timestamp,
                 text,
-                ...(block?.type === "thinking" ? { channel: "thinking" as const } : {}),
+                ...(update.type.startsWith("thinking_") ? { channel: "thinking" as const } : {}),
               },
               record,
             );
-          }
-        }
-        if (
-          event.message.role === "assistant" &&
-          (event.assistantMessageEvent.type === "text_delta" ||
-            event.assistantMessageEvent.type === "thinking_delta")
-        ) {
-          return toDriverEvents(
-            {
-              type: "assistantDelta" as const,
-              sessionRef: record.ref,
-              timestamp,
-              text: event.assistantMessageEvent.delta ?? "",
-              ...(event.assistantMessageEvent.type === "thinking_delta"
-                ? { channel: "thinking" as const }
-                : {}),
-            },
-            record,
-          );
         }
         return [sessionUpdatedEvent(record)];
+      }
       case "tool_execution_start":
         record.status = "running";
         return toDriverEvents(

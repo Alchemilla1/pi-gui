@@ -165,7 +165,12 @@ test("Anthropic endpoint configured through GUI streams thinking, uses a tool an
     expect(requests[0].body.thinking).toBeTruthy();
     await expect(page.locator(".timeline-thinking").first()).toBeVisible();
     await page.locator(".timeline-thinking summary").first().click();
-    await expect(page.getByTestId("transcript")).toContainText("ANTHROPIC_THINKING_OK");
+    await expect(
+      page.locator(".timeline-thinking").first().locator(".message__content"),
+    ).toHaveText("ANTHROPIC_THINKING_OK");
+    await expect(page.locator(".timeline-item--assistant > .message__content").last()).toHaveText(
+      "ANTHROPIC_FINAL_OK",
+    );
     await page.screenshot({ path: test.info().outputPath("anthropic-protocol.png") });
     expect((await getDesktopState(page)).lastError).toBeUndefined();
   } finally {
