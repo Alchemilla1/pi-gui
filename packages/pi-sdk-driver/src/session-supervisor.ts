@@ -2645,6 +2645,30 @@ export class SessionSupervisor {
         this.updatePreviewFromMessage(record, event.message);
         if (
           event.message.role === "assistant" &&
+          (event.assistantMessageEvent.type === "text_start" ||
+            event.assistantMessageEvent.type === "thinking_start")
+        ) {
+          // Anthropic-compatible servers may put content in the start block,
+          // rather than sending all of it in subsequent deltas.
+          const update = event.assistantMessageEvent;
+          const block = update.partial.content[update.contentIndex];
+          const text =
+            block?.type === "thinking" ? block.thinking : block?.type === "text" ? block.text : "";
+          if (text) {
+            return toDriverEvents(
+              {
+                type: "assistantDelta" as const,
+                sessionRef: record.ref,
+                timestamp,
+                text,
+                ...(block?.type === "thinking" ? { channel: "thinking" as const } : {}),
+              },
+              record,
+            );
+          }
+        }
+        if (
+          event.message.role === "assistant" &&
           (event.assistantMessageEvent.type === "text_delta" ||
             event.assistantMessageEvent.type === "thinking_delta")
         ) {

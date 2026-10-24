@@ -33,8 +33,9 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
     thinking?: unknown;
     outputConfig?: unknown;
     thinkingChars: number;
+    initialThinkingChars: number;
     status?: number;
-  } = { thinkingChars: 0 };
+  } = { thinkingChars: 0, initialThinkingChars: 0 };
   const relay = createServer((req, res) => {
     const forward = async () => {
       let raw = "";
@@ -73,6 +74,7 @@ test("GUI receives a real Anthropic Messages answer and thinking from the config
             };
             wire.thinkingChars +=
               event.delta?.thinking?.length ?? event.content_block?.thinking?.length ?? 0;
+            wire.initialThinkingChars += event.content_block?.thinking?.length ?? 0;
           }
         }
       res.end();

@@ -98,3 +98,22 @@ await test("a discrete agent event still writes the catalog", async () => {
   assert.ok(emitted.length > 0, "expected the discrete event to emit");
   assert.equal(catalogWrites, 1);
 });
+
+for (const kind of ["text", "thinking"] as const) {
+  await test(`initial ${kind} content reaches the UI without a catalog write`, async () => {
+    const message = { role: "assistant", content: [{ type: kind, [kind]: "initial content" }] };
+    const { emitted, catalogWrites } = await drive({
+      type: "message_update",
+      message,
+      assistantMessageEvent: { type: `${kind}_start`, partial: message, contentIndex: 0 },
+    });
+    const delta = emitted.find((event) => event.type === "assistantDelta");
+    assert.ok(delta && "text" in delta);
+    assert.equal(delta.text, "initial content");
+    assert.equal(
+      "channel" in delta ? delta.channel : undefined,
+      kind === "thinking" ? "thinking" : undefined,
+    );
+    assert.equal(catalogWrites, 0);
+  });
+}

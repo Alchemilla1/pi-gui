@@ -1,4 +1,4 @@
-# Provider configuration and GUI subagents (1.0.5)
+# Provider configuration and GUI subagents (1.0.6)
 
 The custom endpoint editor now supports OpenAI Chat Completions, OpenAI Responses
 and Anthropic Messages. Protocol and per-model reasoning flags pass through the
@@ -48,3 +48,9 @@ auth opt-in and keep credentials outside evidence directories.
 The simple DACINT control requests completed with both none and high, so this fix
 does not claim that off alone caused the previous long tool-only loop. It repairs
 the demonstrated capability/configuration loss and process-launch failures.
+
+Anthropic streaming start blocks can already contain thinking or text. The driver
+now forwards that initial content before subsequent deltas, so fast or buffered
+responses no longer lose their reasoning in the live GUI. A protocol fixture
+reproduced the missing initial prefix before the fix and verifies the complete
+text afterward; the live diagnostic records initial versus total thinking lengths.

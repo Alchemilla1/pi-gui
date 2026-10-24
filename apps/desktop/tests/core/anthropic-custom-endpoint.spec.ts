@@ -61,10 +61,13 @@ test("Anthropic endpoint configured through GUI streams thinking, uses a tool an
           usage: { input_tokens: 10, output_tokens: 0 },
         },
       });
-      send("content_block_start", { index: 0, content_block: { type: "thinking", thinking: "" } });
+      send("content_block_start", {
+        index: 0,
+        content_block: { type: "thinking", thinking: "ANTHROPIC_" },
+      });
       send("content_block_delta", {
         index: 0,
-        delta: { type: "thinking_delta", thinking: "ANTHROPIC_THINKING_OK" },
+        delta: { type: "thinking_delta", thinking: "THINKING_OK" },
       });
       send("content_block_delta", {
         index: 0,
