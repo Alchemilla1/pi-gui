@@ -18,7 +18,9 @@ and unrelated Codex routing were not altered. DeepSeek-V4.1-Flash-1017 supports
 `max`, not a distinct `xhigh` effort: its official encoding maps low/high/max to
 50/75/100. Its local model definition declares `max: "max"` and does not declare
 xhigh. Pi resolves the existing global xhigh preference to the supported max
-level. The live DACINT regression observes the outgoing `reasoning_effort` and
+level. The gateway rejects the native DeepSeek `thinking` field with
+`unsupported_chat_request`, so this OpenAI-compatible route sends only its accepted
+`reasoning_effort: "max"`. The live DACINT regression observes the outgoing `reasoning_effort` and
 the resulting GUI level; it does not claim access to the gateway's vLLM runtime
 configuration. See the [model's encoding documentation](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/blob/main/encoding/README.md)
 and [DeepSeek effort mapping](https://api-docs.deepseek.com/guides/thinking_mode).
